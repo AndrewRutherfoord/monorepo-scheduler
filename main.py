@@ -11,6 +11,7 @@ CRON_DIR = Path("/etc/cron.d")
 MAKEFILE_PATH = Path("Makefile")
 WRAPPER_SRC = SCRIPT_DIR / "wrapper.sh"
 WRAPPER_PATH = Path("/usr/local/bin/monorepo-scheduler-wrapper.sh")
+RUN_LOG = SCRIPT_DIR / "run_log.csv"
 
 def load_yaml(path):
     with open(path) as f:
@@ -79,7 +80,8 @@ def apply_target(target, pull=False, doppler=None):
             f"{shell_quote(final_command)} "
             f"{shell_quote(job_name)} "
             f"{shell_quote(doppler_project)} "
-            f"{shell_quote(doppler_config)}\n"
+            f"{shell_quote(doppler_config)} "
+            f"{shell_quote(str(RUN_LOG))}\n"
         )
 
         lines.append(line)
@@ -133,7 +135,8 @@ def generate_makefile(config):
                 f"{shell_quote(final_command)} "
                 f"{shell_quote(target_name)} "
                 f"{shell_quote(doppler_project)} "
-                f"{shell_quote(doppler_config)}"
+                f"{shell_quote(doppler_config)} "
+                f"{shell_quote(str(RUN_LOG))}"
             )
 
             rules.append(f"{target_name}:\n\t{wrapper_call}")
