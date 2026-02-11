@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import sqlite3
 import yaml
 import subprocess
 from pathlib import Path
@@ -11,6 +12,7 @@ CRON_DIR = Path("/etc/cron.d")
 MAKEFILE_PATH = Path("Makefile")
 WRAPPER_SRC = SCRIPT_DIR / "wrapper.sh"
 WRAPPER_PATH = Path("/usr/local/bin/monorepo-scheduler-wrapper.sh")
+DB_PATH = Path("/var/lib/monorepo-scheduler/runs.db")
 
 def load_yaml(path):
     with open(path) as f:
@@ -18,6 +20,26 @@ def load_yaml(path):
 
 def shell_quote(s):
     return shlex.quote(str(s))
+
+def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            work_dir TEXT NOT NULL,
+            log_file TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            exit_code INTEGER NOT NULL,
+            hostname TEXT NOT NULL,
+            output TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 def install_wrapper():
     wrapper_content = WRAPPER_SRC.read_text()
@@ -152,6 +174,7 @@ def main():
     parser.add_argument("--pull", action="store_true", help="Git pull target repos before applying")
     args = parser.parse_args()
 
+    init_db()
     install_wrapper()
     config = load_yaml(BASE_TARGETS)
     generate_makefile(config)
