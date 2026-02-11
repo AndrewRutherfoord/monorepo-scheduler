@@ -1,0 +1,11 @@
+targets:
+  - name: project1
+    repo_path: /srv/repos/project1
+    schedule_file: config/schedule.yml
+    branch: main
+    enabled: true
+
+  - name: infra-tools
+    repo_path: /srv/repos/infra-tools
+    schedule_file: schedules.yml
+    enabled: true
