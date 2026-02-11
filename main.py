@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import yaml
 import subprocess
 from pathlib import Path
@@ -39,7 +40,7 @@ def install_wrapper():
     WRAPPER_PATH.chmod(0o755)
     print(f"Installed wrapper script to {WRAPPER_PATH}")
 
-def apply_target(target):
+def apply_target(target, pull=False):
     if not target.get("enabled", True):
         return False
 
@@ -48,15 +49,14 @@ def apply_target(target):
     schedule_path = repo_path / target["schedule_file"]
     print(f"Applying scheduler for {name}")
 
-    if not schedule_path.exists():
-        print(f"⚠️  Schedule file not found for {name}: {schedule_path}")
-        return False
-
-    # Optional git pull for branch
-    if target.get("branch"):
+    if pull and target.get("branch"):
         subprocess.run(["git", "-C", str(repo_path), "fetch"], check=False)
         subprocess.run(["git", "-C", str(repo_path), "checkout", target["branch"]], check=False)
         subprocess.run(["git", "-C", str(repo_path), "pull", "--rebase"], check=False)
+
+    if not schedule_path.exists():
+        print(f"⚠️  Schedule file not found for {name}: {schedule_path}")
+        return False
 
     config = load_yaml(schedule_path)
     defaults = config.get("defaults", {})
@@ -101,9 +101,13 @@ def apply_target(target):
     return True
 
 def main():
+    parser = argparse.ArgumentParser(description="Apply cron schedules from monorepo targets")
+    parser.add_argument("--pull", action="store_true", help="Git pull target repos before applying")
+    args = parser.parse_args()
+
     install_wrapper()
     config = load_yaml(BASE_TARGETS)
-    results = [apply_target(t) for t in config.get("targets", [])]
+    results = [apply_target(t, pull=args.pull) for t in config.get("targets", [])]
     changed = any(results)
 
     if changed:
