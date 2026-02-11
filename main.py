@@ -123,14 +123,12 @@ def generate_makefile(config):
             command = job["command"]
             final_command = f"{env_prefix} {command}" if env_prefix else command
 
-            log_file = job.get("log_file", f"{defaults.get('log_dir', 'logs')}/{job['name']}.log")
-            abs_log_path = repo_path / log_file
             doppler_project = doppler.get("project", "") if doppler else ""
             doppler_config = doppler.get("config", "") if doppler else ""
 
             wrapper_call = (
                 f"{WRAPPER_PATH} "
-                f"{shell_quote(str(abs_log_path))} "
+                f"/dev/stdout "
                 f"{shell_quote(str(repo_path))} "
                 f"{shell_quote(final_command)} "
                 f"{shell_quote(target_name)} "
