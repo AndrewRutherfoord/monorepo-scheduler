@@ -6,6 +6,23 @@ import shlex
 
 BASE_TARGETS = Path("targets.yaml")
 CRON_DIR = Path("/etc/cron.d")
+WRAPPER_PATH = Path("/usr/local/bin/monorepo-scheduler-wrapper.sh")
+
+WRAPPER_SCRIPT = """\
+#!/bin/bash
+LOG_FILE="$1"
+WORK_DIR="$2"
+COMMAND="$3"
+
+cd "$WORK_DIR" || exit 1
+
+{
+    echo "=== START $(date '+%Y-%m-%d %H:%M:%S') ==="
+    bash -c "$COMMAND"
+    EXIT_CODE=$?
+    echo "=== END $(date '+%Y-%m-%d %H:%M:%S') exit_code=$EXIT_CODE ==="
+} >> "$LOG_FILE" 2>&1
+"""
 
 def load_yaml(path):
     with open(path) as f:
@@ -13,6 +30,14 @@ def load_yaml(path):
 
 def shell_quote(s):
     return shlex.quote(str(s))
+
+def install_wrapper():
+    existing = WRAPPER_PATH.read_text() if WRAPPER_PATH.exists() else ""
+    if existing == WRAPPER_SCRIPT:
+        return
+    WRAPPER_PATH.write_text(WRAPPER_SCRIPT)
+    WRAPPER_PATH.chmod(0o755)
+    print(f"Installed wrapper script to {WRAPPER_PATH}")
 
 def apply_target(target):
     if not target.get("enabled", True):
@@ -56,8 +81,10 @@ def apply_target(target):
         final_command = f"{env_prefix} {command}" if env_prefix else command
 
         line = (
-            f"{cron} root cd {repo_path} && "
-            f"{final_command} >> {abs_log_path} 2>&1\n"
+            f"{cron} root {WRAPPER_PATH} "
+            f"{shell_quote(str(abs_log_path))} "
+            f"{shell_quote(str(repo_path))} "
+            f"{shell_quote(final_command)}\n"
         )
 
         lines.append(line)
@@ -74,6 +101,7 @@ def apply_target(target):
     return True
 
 def main():
+    install_wrapper()
     config = load_yaml(BASE_TARGETS)
     results = [apply_target(t) for t in config.get("targets", [])]
     changed = any(results)
