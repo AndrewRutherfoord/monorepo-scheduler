@@ -5,8 +5,7 @@ from pathlib import Path
 import shlex
 
 BASE_TARGETS = Path("targets.yaml")
-# CRON_DIR = Path("/etc/cron.d")
-CRON_DIR = Path("./cron.test")
+CRON_DIR = Path("/etc/cron.d")
 
 def load_yaml(path):
     with open(path) as f:
@@ -22,6 +21,7 @@ def apply_target(target):
     name = target["name"]
     repo_path = Path(target["repo_path"])
     schedule_path = repo_path / target["schedule_file"]
+    print(f"Applying scheduler for {name}")
 
     if not schedule_path.exists():
         print(f"⚠️  Schedule file not found for {name}: {schedule_path}")
@@ -37,7 +37,7 @@ def apply_target(target):
     defaults = config.get("defaults", {})
     schedules = config.get("schedules", [])
 
-    cron_file = CRON_DIR / f"{name}.cron"
+    cron_file = CRON_DIR / f"{name}"
     lines = [f"# Auto-generated cron jobs for {name}\n"]
 
     log_dir = repo_path / defaults.get("log_dir", "logs")
