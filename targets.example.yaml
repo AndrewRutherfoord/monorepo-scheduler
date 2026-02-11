@@ -1,3 +1,8 @@
+# Doppler config for fetching DISCORD_WEBHOOK_URL on job failure
+doppler:
+  project: my-project
+  config: production
+
 targets:
   - name: project1
     repo_path: /srv/repos/project1

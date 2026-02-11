@@ -1,5 +1,0 @@
-targets:
-  - name: mxacademy-creditsheet
-    repo_path: /srv/repos/MXAcademy-CreditSheet
-    schedule_file: ansible/schedule.yml
-    enabled: true

@@ -15,6 +15,9 @@ WRAPPER_SCRIPT = """\
 LOG_FILE="$1"
 WORK_DIR="$2"
 COMMAND="$3"
+JOB_NAME="$4"
+DOPPLER_PROJECT="$5"
+DOPPLER_CONFIG="$6"
 
 cd "$WORK_DIR" || exit 1
 
@@ -24,6 +27,26 @@ cd "$WORK_DIR" || exit 1
     EXIT_CODE=$?
     echo "=== END $(date '+%Y-%m-%d %H:%M:%S') exit_code=$EXIT_CODE ==="
 } >> "$LOG_FILE" 2>&1
+
+if [ "$EXIT_CODE" -ne 0 ] && [ -n "$DOPPLER_PROJECT" ]; then
+    WEBHOOK_URL=$(doppler secrets get DISCORD_WEBHOOK_URL --project "$DOPPLER_PROJECT" --config "$DOPPLER_CONFIG" --plain 2>/dev/null)
+    if [ -n "$WEBHOOK_URL" ]; then
+        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+        HOSTNAME=$(hostname)
+        curl -s -H "Content-Type: application/json" -d "{
+            \\"embeds\\": [{
+                \\"title\\": \\"Cron Job Failed\\",
+                \\"color\\": 15548997,
+                \\"fields\\": [
+                    {\\"name\\": \\"Job\\", \\"value\\": \\"$JOB_NAME\\", \\"inline\\": true},
+                    {\\"name\\": \\"Exit Code\\", \\"value\\": \\"$EXIT_CODE\\", \\"inline\\": true},
+                    {\\"name\\": \\"Time\\", \\"value\\": \\"$TIMESTAMP\\", \\"inline\\": true},
+                    {\\"name\\": \\"Host\\", \\"value\\": \\"$HOSTNAME\\", \\"inline\\": true}
+                ]
+            }]
+        }" "$WEBHOOK_URL" > /dev/null 2>&1
+    fi
+fi
 """
 
 def load_yaml(path):
@@ -41,7 +64,7 @@ def install_wrapper():
     WRAPPER_PATH.chmod(0o755)
     print(f"Installed wrapper script to {WRAPPER_PATH}")
 
-def apply_target(target, pull=False):
+def apply_target(target, pull=False, doppler=None):
     if not target.get("enabled", True):
         return False
 
@@ -81,11 +104,18 @@ def apply_target(target, pull=False):
 
         final_command = f"{env_prefix} {command}" if env_prefix else command
 
+        job_name = f"{name}-{job['name']}"
+        doppler_project = doppler.get("project", "") if doppler else ""
+        doppler_config = doppler.get("config", "") if doppler else ""
+
         line = (
             f"{cron} root {WRAPPER_PATH} "
             f"{shell_quote(str(abs_log_path))} "
             f"{shell_quote(str(repo_path))} "
-            f"{shell_quote(final_command)}\n"
+            f"{shell_quote(final_command)} "
+            f"{shell_quote(job_name)} "
+            f"{shell_quote(doppler_project)} "
+            f"{shell_quote(doppler_config)}\n"
         )
 
         lines.append(line)
@@ -147,7 +177,8 @@ def main():
     install_wrapper()
     config = load_yaml(BASE_TARGETS)
     generate_makefile(config)
-    results = [apply_target(t, pull=args.pull) for t in config.get("targets", [])]
+    doppler = config.get("doppler")
+    results = [apply_target(t, pull=args.pull, doppler=doppler) for t in config.get("targets", [])]
     changed = any(results)
 
     if changed:
