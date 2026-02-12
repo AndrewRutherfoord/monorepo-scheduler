@@ -43,10 +43,29 @@ if [ -n "$RUN_LOG" ]; then
 fi
 
 # Push metrics to Prometheus Pushgateway
+echo "---- PUSHGATEWAY DEBUG START ----" >> "$LOG_FILE"
+
+if [ -z "$PUSHGATEWAY_URL" ]; then
+    echo "Pushgateway URL is NOT set" >> "$LOG_FILE"
+fi
+
+if [ -z "$PUSHGATEWAY_USERNAME" ]; then
+    echo "Pushgateway USERNAME is NOT set" >> "$LOG_FILE"
+fi
+
+if [ -z "$PUSHGATEWAY_PASSWORD" ]; then
+    echo "Pushgateway PASSWORD is NOT set" >> "$LOG_FILE"
+fi
+
 if [ -n "$PUSHGATEWAY_URL" ] && \
    [ -n "$PUSHGATEWAY_USERNAME" ] && \
    [ -n "$PUSHGATEWAY_PASSWORD" ]; then
-    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs/instance/${JOB_NAME}" > /dev/null 2>&1
+
+    PUSH_URL="${PUSHGATEWAY_URL}/metrics/job/cron_jobs/instance/${JOB_NAME}"
+    echo "Push URL: $PUSH_URL" >> "$LOG_FILE"
+    echo "Job: $JOB_NAME Duration: $DURATION Exit: $EXIT_CODE" >> "$LOG_FILE"
+
+    METRICS_PAYLOAD=$(cat <<PROM_EOF
 # TYPE cron_job_duration_seconds gauge
 cron_job_duration_seconds $DURATION
 # TYPE cron_job_exit_code gauge
@@ -54,16 +73,43 @@ cron_job_exit_code $EXIT_CODE
 # TYPE cron_job_last_run_timestamp gauge
 cron_job_last_run_timestamp $END_EPOCH
 PROM_EOF
+)
 
-    # Track last success separately so it persists across failed runs
+    echo "Payload being sent:" >> "$LOG_FILE"
+    echo "$METRICS_PAYLOAD" >> "$LOG_FILE"
 
+    HTTP_CODE=$(echo "$METRICS_PAYLOAD" | curl -s -w "%{http_code}" -o /tmp/pushgateway_response.txt \
+        -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" \
+        --data-binary @- \
+        "$PUSH_URL")
+
+    echo "Pushgateway HTTP status: $HTTP_CODE" >> "$LOG_FILE"
+    echo "Pushgateway response body:" >> "$LOG_FILE"
+    cat /tmp/pushgateway_response.txt >> "$LOG_FILE"
+    rm -f /tmp/pushgateway_response.txt
+
+    # Success metric
     if [ "$EXIT_CODE" -eq 0 ]; then
-    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs_success/instance/${JOB_NAME}" > /dev/null 2>&1
+        SUCCESS_URL="${PUSHGATEWAY_URL}/metrics/job/cron_jobs_success/instance/${JOB_NAME}"
+
+        HTTP_CODE=$(cat <<PROM_EOF | curl -s -w "%{http_code}" -o /tmp/pushgateway_success_response.txt \
+            -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" \
+            --data-binary @- \
+            "$SUCCESS_URL"
 # TYPE cron_job_last_success_timestamp gauge
 cron_job_last_success_timestamp $END_EPOCH
 PROM_EOF
+)
+
+        echo "Success metric HTTP status: $HTTP_CODE" >> "$LOG_FILE"
+        cat /tmp/pushgateway_success_response.txt >> "$LOG_FILE"
+        rm -f /tmp/pushgateway_success_response.txt
     fi
+else
+    echo "Skipping Pushgateway push due to missing credentials" >> "$LOG_FILE"
 fi
+
+echo "---- PUSHGATEWAY DEBUG END ----" >> "$LOG_FILE"
 
 # Push logs to Loki
 if [ -n "$LOKI_URL" ] && [ -n "$LOKI_USERNAME" ] && [ -n "$LOKI_PASSWORD" ] && [ -s "$TMPLOG" ] && command -v jq >/dev/null 2>&1; then
