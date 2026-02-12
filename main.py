@@ -93,6 +93,7 @@ def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=
         lines.append(line)
 
     new_content = "".join(lines)
+    new_content += "\n\n"
     existing_content = cron_file.read_text() if cron_file.exists() else ""
 
     if new_content == existing_content:
