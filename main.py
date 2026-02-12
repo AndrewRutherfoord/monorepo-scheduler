@@ -88,8 +88,6 @@ def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=
             f"{shell_quote(final_command)} "
             f"{shell_quote(job_name)} "
             f"{shell_quote(str(RUN_LOG))} "
-            f"{shell_quote(pushgateway_url)} "
-            f"{shell_quote(loki_url)}\n"
         )
 
         lines.append(line)
@@ -143,8 +141,6 @@ def generate_makefile(config, pushgateway_url="", loki_url=""):
                 f"{shell_quote(final_command)} "
                 f"{shell_quote(target_name)} "
                 f"{shell_quote(str(RUN_LOG))} "
-                f"{shell_quote(pushgateway_url)} "
-                f"{shell_quote(loki_url)}"
             )
 
             rules.append(f"{target_name}:\n\t{wrapper_call}")

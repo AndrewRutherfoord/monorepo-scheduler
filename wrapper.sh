@@ -3,7 +3,7 @@ LOG_FILE="$1"
 WORK_DIR="$2"
 COMMAND="$3"
 JOB_NAME="$4"
-RUN_LOG="$7"
+RUN_LOG="$5"
 
 cd "$WORK_DIR" || exit 1
 
