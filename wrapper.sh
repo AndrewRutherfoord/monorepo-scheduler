@@ -46,7 +46,7 @@ fi
 if [ -n "$PUSHGATEWAY_URL" ] && \
    [ -n "$PUSHGATEWAY_USERNAME" ] && \
    [ -n "$PUSHGATEWAY_PASSWORD" ]; then
-    cat <<PROM_EOF | curl -s -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs/instance/${JOB_NAME}" > /dev/null 2>&1
+    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs/instance/${JOB_NAME}" > /dev/null 2>&1
 # TYPE cron_job_duration_seconds gauge
 cron_job_duration_seconds $DURATION
 # TYPE cron_job_exit_code gauge
@@ -58,7 +58,7 @@ PROM_EOF
     # Track last success separately so it persists across failed runs
 
     if [ "$EXIT_CODE" -eq 0 ]; then
-    cat <<PROM_EOF | curl -s -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs_success/instance/${JOB_NAME}" > /dev/null 2>&1
+    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs_success/instance/${JOB_NAME}" > /dev/null 2>&1
 # TYPE cron_job_last_success_timestamp gauge
 cron_job_last_success_timestamp $END_EPOCH
 PROM_EOF
@@ -77,7 +77,7 @@ if [ -n "$LOKI_URL" ] && [ -n "$LOKI_USERNAME" ] && [ -n "$LOKI_PASSWORD" ] && [
         --arg ts "$NANO_TS" \
         '{streams: [{stream: {job: "cron_jobs", job_name: $job_name, host: $host, exit_code: $exit_code}, values: [[$ts, .]]}]}' \
         "$TMPLOG" | \
-    curl -s -X POST "${LOKI_URL}/loki/api/v1/push" \
+    curl -sf -X POST "${LOKI_URL}/loki/api/v1/push" \
         -H "Content-Type: application/json" \
         -u "${LOKI_USERNAME}:${LOKI_PASSWORD}" \
         -d @- > /dev/null 2>&1
@@ -91,7 +91,7 @@ if [ "$EXIT_CODE" -ne 0 ] && [ -n "$DISCORD_WEBHOOK_URL" ]; then
     if [ -n "$WEBHOOK_URL" ]; then
         TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
         HOSTNAME=$(hostname)
-        curl -s -H "Content-Type: application/json" -d "{
+        curl -sf -H "Content-Type: application/json" -d "{
             \"embeds\": [{
                 \"title\": \"Cron Job Failed\",
                 \"color\": 15548997,
