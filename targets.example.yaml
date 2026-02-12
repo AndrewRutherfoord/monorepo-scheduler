@@ -1,4 +1,7 @@
-# Doppler config for fetching DISCORD_WEBHOOK_URL on job failure
+# Doppler config for fetching secrets:
+#   DISCORD_WEBHOOK_URL - Discord webhook for failure notifications
+#   PUSHGATEWAY_URL     - Prometheus Pushgateway URL for job metrics (optional)
+#   LOKI_URL            - Loki URL for shipping job logs to Grafana (optional, requires jq)
 doppler:
   project: my-project
   config: production

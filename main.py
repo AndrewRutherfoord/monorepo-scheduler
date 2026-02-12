@@ -20,6 +20,14 @@ def load_yaml(path):
 def shell_quote(s):
     return shlex.quote(str(s))
 
+def doppler_get(secret, project, config):
+    """Fetch a single secret from Doppler. Returns empty string on failure."""
+    result = subprocess.run(
+        ["doppler", "secrets", "get", secret, "--project", project, "--config", config, "--plain"],
+        capture_output=True, text=True
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
 def install_wrapper():
     wrapper_content = WRAPPER_SRC.read_text()
     existing = WRAPPER_PATH.read_text() if WRAPPER_PATH.exists() else ""
@@ -29,7 +37,7 @@ def install_wrapper():
     WRAPPER_PATH.chmod(0o755)
     print(f"Installed wrapper script to {WRAPPER_PATH}")
 
-def apply_target(target, pull=False, doppler=None):
+def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=""):
     if not target.get("enabled", True):
         return False
 
@@ -74,14 +82,14 @@ def apply_target(target, pull=False, doppler=None):
         doppler_config = doppler.get("config", "") if doppler else ""
 
         line = (
-            f"{cron} root {WRAPPER_PATH} "
+            f"{cron} root doppler run --project {shell_quote(doppler_project)} --config {shell_quote(doppler_config)} -- {WRAPPER_PATH} "
             f"{shell_quote(str(abs_log_path))} "
             f"{shell_quote(str(repo_path))} "
             f"{shell_quote(final_command)} "
             f"{shell_quote(job_name)} "
-            f"{shell_quote(doppler_project)} "
-            f"{shell_quote(doppler_config)} "
-            f"{shell_quote(str(RUN_LOG))}\n"
+            f"{shell_quote(str(RUN_LOG))} "
+            f"{shell_quote(pushgateway_url)} "
+            f"{shell_quote(loki_url)}\n"
         )
 
         lines.append(line)
@@ -97,7 +105,7 @@ def apply_target(target, pull=False, doppler=None):
     print(f"Applied {len(schedules)} schedules for {name}")
     return True
 
-def generate_makefile(config):
+def generate_makefile(config, pushgateway_url="", loki_url=""):
     targets = []
     rules = []
     doppler = config.get("doppler")
@@ -129,14 +137,14 @@ def generate_makefile(config):
             doppler_config = doppler.get("config", "") if doppler else ""
 
             wrapper_call = (
-                f"{WRAPPER_PATH} "
+                f"doppler run --project {shell_quote(doppler_project)} --config {shell_quote(doppler_config)} -- {WRAPPER_PATH} "
                 f"/dev/stdout "
                 f"{shell_quote(str(repo_path))} "
                 f"{shell_quote(final_command)} "
                 f"{shell_quote(target_name)} "
-                f"{shell_quote(doppler_project)} "
-                f"{shell_quote(doppler_config)} "
-                f"{shell_quote(str(RUN_LOG))}"
+                f"{shell_quote(str(RUN_LOG))} "
+                f"{shell_quote(pushgateway_url)} "
+                f"{shell_quote(loki_url)}"
             )
 
             rules.append(f"{target_name}:\n\t{wrapper_call}")
@@ -157,9 +165,16 @@ def main():
 
     install_wrapper()
     config = load_yaml(BASE_TARGETS)
-    generate_makefile(config)
     doppler = config.get("doppler")
-    results = [apply_target(t, pull=args.pull, doppler=doppler) for t in config.get("targets", [])]
+
+    pushgateway_url = ""
+    loki_url = ""
+    if doppler:
+        pushgateway_url = doppler_get("PUSHGATEWAY_URL", doppler["project"], doppler["config"])
+        loki_url = doppler_get("LOKI_URL", doppler["project"], doppler["config"])
+
+    generate_makefile(config, pushgateway_url=pushgateway_url, loki_url=loki_url)
+    results = [apply_target(t, pull=args.pull, doppler=doppler, pushgateway_url=pushgateway_url, loki_url=loki_url) for t in config.get("targets", [])]
     changed = any(results)
 
     if changed:
