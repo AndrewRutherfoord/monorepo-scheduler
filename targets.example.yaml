@@ -1,26 +1,18 @@
-# Global Doppler config for shared secrets:
+# Doppler config for fetching secrets:
 #   DISCORD_WEBHOOK_URL - Discord webhook for failure notifications
 #   HC_PING_URL         - Healthchecks base ping URL (e.g. https://hc.example.com/ping)
 doppler:
   project: my-project
   config: production
 
-# Per-target Doppler config provides:
-#   HC_PING_SLUG - Healthchecks ping slug/UUID for this project's checks
 targets:
   - name: project1
     repo_path: /srv/repos/project1
     schedule_file: config/schedule.yml
     branch: main
     enabled: true
-    doppler:
-      project: project1
-      config: production
 
   - name: infra-tools
     repo_path: /srv/repos/infra-tools
     schedule_file: schedules.yml
     enabled: true
-    doppler:
-      project: infra-tools
-      config: production
