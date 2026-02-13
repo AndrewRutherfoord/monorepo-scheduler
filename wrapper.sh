@@ -9,13 +9,14 @@ HC_PING_SLUG="$6"
 cd "$WORK_DIR" || exit 1
 
 HC_PING_URL="$HC_PING_URL"
+HC_PING_KEY="$HC_PING_KEY"
 
 START_TS=$(date '+%Y-%m-%d %H:%M:%S')
 START_EPOCH=$(date +%s)
 
 # Ping Healthchecks start
-if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_SLUG" ]; then
-    curl -sfm 10 "${HC_PING_URL}/${HC_PING_SLUG}/start" > /dev/null 2>&1
+if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_KEY" ] && [ -n "$HC_PING_SLUG" ]; then
+    curl -sfm 10 "${HC_PING_URL}/${HC_PING_KEY}/${HC_PING_SLUG}/start" > /dev/null 2>&1
 fi
 
 # Capture output to temp file so we can send it to Healthchecks
@@ -42,13 +43,10 @@ if [ -n "$RUN_LOG" ]; then
     echo "$START_TS,$JOB_NAME,$EXIT_CODE,$DURATION" >> "$RUN_LOG"
 fi
 
-# Ping Healthchecks with log output
-if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_SLUG" ]; then
-    if [ "$EXIT_CODE" -eq 0 ]; then
-        curl -sfm 10 --data-binary @"$TMPLOG" "${HC_PING_URL}/${HC_PING_SLUG}" > /dev/null 2>&1
-    else
-        curl -sfm 10 --data-binary @"$TMPLOG" "${HC_PING_URL}/${HC_PING_SLUG}/fail" > /dev/null 2>&1
-    fi
+# Send log output and report exit status to Healthchecks
+if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_KEY" ] && [ -n "$HC_PING_SLUG" ]; then
+    curl -sfm 10 --data-binary @"$TMPLOG" "${HC_PING_URL}/${HC_PING_KEY}/${HC_PING_SLUG}/log" > /dev/null 2>&1
+    curl -sfm 10 "${HC_PING_URL}/${HC_PING_KEY}/${HC_PING_SLUG}/${EXIT_CODE}" > /dev/null 2>&1
 fi
 
 rm -f "$TMPLOG"

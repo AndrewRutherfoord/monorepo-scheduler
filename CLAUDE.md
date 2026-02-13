@@ -46,7 +46,8 @@ schedules:
 
 **Doppler secrets** (all optional):
 - `DISCORD_WEBHOOK_URL` — Discord webhook for failure notifications
-- `HC_PING_URL` — Healthchecks base ping URL (e.g. `https://hc.example.com/ping`). Per-job `hc_slug` in schedule.yml identifies the check, pinging `{HC_PING_URL}/{hc_slug}` on success/failure with log output as body
+- `HC_PING_URL` — Healthchecks base URL (e.g. `https://hc.local.example.com/ping`)
+- `HC_PING_KEY` — Healthchecks project ping key. Combined with per-job `hc_slug` from schedule.yml to ping `{HC_PING_URL}/{HC_PING_KEY}/{hc_slug}/{exit_code}`
 
 **System requirements:** Python 3.12+, uv, bash, git, systemctl/cron, Doppler CLI (optional, for Discord/Healthchecks)
 

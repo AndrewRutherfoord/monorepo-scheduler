@@ -1,6 +1,7 @@
 # Doppler config for fetching secrets:
 #   DISCORD_WEBHOOK_URL - Discord webhook for failure notifications
-#   HC_PING_URL         - Healthchecks base ping URL (e.g. https://hc.example.com/ping)
+#   HC_PING_URL         - Healthchecks base URL (e.g. https://hc.example.com/ping)
+#   HC_PING_KEY         - Healthchecks project ping key
 doppler:
   project: my-project
   config: production
