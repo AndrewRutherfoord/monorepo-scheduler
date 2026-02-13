@@ -4,21 +4,21 @@ WORK_DIR="$2"
 COMMAND="$3"
 JOB_NAME="$4"
 RUN_LOG="$5"
+HC_PING_SLUG="$6"
 
 cd "$WORK_DIR" || exit 1
 
-PUSHGATEWAY_URL="$PUSHGATEWAY_URL"
-PUSHGATEWAY_USERNAME="$PUSHGATEWAY_USERNAME"
-PUSHGATEWAY_PASSWORD="$PUSHGATEWAY_PASSWORD"
-
-LOKI_URL="$LOKI_URL"
-LOKI_USERNAME="$LOKI_USERNAME"
-LOKI_PASSWORD="$LOKI_PASSWORD"
+HC_PING_URL="$HC_PING_URL"
 
 START_TS=$(date '+%Y-%m-%d %H:%M:%S')
 START_EPOCH=$(date +%s)
 
-# Capture output to temp file so we can write to log AND push to Loki
+# Ping Healthchecks start
+if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_SLUG" ]; then
+    curl -sfm 10 "${HC_PING_URL}/${HC_PING_SLUG}/start" > /dev/null 2>&1
+fi
+
+# Capture output to temp file so we can send it to Healthchecks
 TMPLOG=$(mktemp)
 
 {
@@ -42,46 +42,13 @@ if [ -n "$RUN_LOG" ]; then
     echo "$START_TS,$JOB_NAME,$EXIT_CODE,$DURATION" >> "$RUN_LOG"
 fi
 
-# Push metrics to Prometheus Pushgateway
-if [ -n "$PUSHGATEWAY_URL" ] && \
-   [ -n "$PUSHGATEWAY_USERNAME" ] && \
-   [ -n "$PUSHGATEWAY_PASSWORD" ]; then
-    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs/instance/${JOB_NAME}" > /dev/null 2>&1
-# TYPE cron_job_duration_seconds gauge
-cron_job_duration_seconds $DURATION
-# TYPE cron_job_exit_code gauge
-cron_job_exit_code $EXIT_CODE
-# TYPE cron_job_last_run_timestamp gauge
-cron_job_last_run_timestamp $END_EPOCH
-PROM_EOF
-
-    # Track last success separately so it persists across failed runs
-
+# Ping Healthchecks with log output
+if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_SLUG" ]; then
     if [ "$EXIT_CODE" -eq 0 ]; then
-    cat <<PROM_EOF | curl -sf -u "${PUSHGATEWAY_USERNAME}:${PUSHGATEWAY_PASSWORD}" --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/cron_jobs_success/instance/${JOB_NAME}" > /dev/null 2>&1
-# TYPE cron_job_last_success_timestamp gauge
-cron_job_last_success_timestamp $END_EPOCH
-PROM_EOF
+        curl -sfm 10 --data-binary @"$TMPLOG" "${HC_PING_URL}/${HC_PING_SLUG}" > /dev/null 2>&1
+    else
+        curl -sfm 10 --data-binary @"$TMPLOG" "${HC_PING_URL}/${HC_PING_SLUG}/fail" > /dev/null 2>&1
     fi
-fi
-
-# Push logs to Loki
-echo "Pushing logs to Loki with START_EPOCH=$START_EPOCH, EXIT_CODE=$EXIT_CODE, JOB_NAME=$JOB_NAME, LOKI_URL=$LOKI_URL, LOKI_USERNAME=$LOKI_USERNAME, TMPLOG=$TMPLOG"
-if [ -n "$LOKI_URL" ] && [ -n "$LOKI_USERNAME" ] && [ -n "$LOKI_PASSWORD" ] && [ -s "$TMPLOG" ] && command -v jq >/dev/null 2>&1; then
-    HOSTNAME=$(hostname)
-    NANO_TS="${START_EPOCH}000000000"
-
-    jq -Rs \
-        --arg job_name "$JOB_NAME" \
-        --arg host "$HOSTNAME" \
-        --arg exit_code "$EXIT_CODE" \
-        --arg ts "$NANO_TS" \
-        '{streams: [{stream: {job: "cron_jobs", job_name: $job_name, host: $host, exit_code: $exit_code}, values: [[$ts, .]]}]}' \
-        "$TMPLOG" | \
-    curl -sf -X POST "${LOKI_URL}/loki/api/v1/push" \
-        -H "Content-Type: application/json" \
-        -u "${LOKI_USERNAME}:${LOKI_PASSWORD}" \
-        -d @- > /dev/null 2>&1
 fi
 
 rm -f "$TMPLOG"

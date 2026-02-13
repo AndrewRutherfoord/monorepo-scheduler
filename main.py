@@ -37,7 +37,7 @@ def install_wrapper():
     WRAPPER_PATH.chmod(0o755)
     print(f"Installed wrapper script to {WRAPPER_PATH}")
 
-def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=""):
+def apply_target(target, pull=False, doppler=None, hc_ping_slug=""):
     if not target.get("enabled", True):
         return False
 
@@ -88,6 +88,7 @@ def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=
             f"{shell_quote(final_command)} "
             f"{shell_quote(job_name)} "
             f"{shell_quote(str(RUN_LOG))} "
+            f"{shell_quote(hc_ping_slug)} "
         )
 
         lines.append(line)
@@ -104,7 +105,7 @@ def apply_target(target, pull=False, doppler=None, pushgateway_url="", loki_url=
     print(f"Applied {len(schedules)} schedules for {name}")
     return True
 
-def generate_makefile(config, pushgateway_url="", loki_url=""):
+def generate_makefile(config):
     targets = []
     rules = []
     doppler = config.get("doppler")
@@ -135,6 +136,11 @@ def generate_makefile(config, pushgateway_url="", loki_url=""):
             doppler_project = doppler.get("project", "") if doppler else ""
             doppler_config = doppler.get("config", "") if doppler else ""
 
+            target_doppler = target.get("doppler", {})
+            hc_ping_slug = ""
+            if target_doppler:
+                hc_ping_slug = doppler_get("HC_PING_SLUG", target_doppler["project"], target_doppler["config"])
+
             wrapper_call = (
                 f"doppler run --project {shell_quote(doppler_project)} --config {shell_quote(doppler_config)} -- {WRAPPER_PATH} "
                 f"/dev/stdout "
@@ -142,6 +148,7 @@ def generate_makefile(config, pushgateway_url="", loki_url=""):
                 f"{shell_quote(final_command)} "
                 f"{shell_quote(target_name)} "
                 f"{shell_quote(str(RUN_LOG))} "
+                f"{shell_quote(hc_ping_slug)} "
             )
 
             rules.append(f"{target_name}:\n\t{wrapper_call}")
@@ -164,14 +171,14 @@ def main():
     config = load_yaml(BASE_TARGETS)
     doppler = config.get("doppler")
 
-    pushgateway_url = ""
-    loki_url = ""
-    if doppler:
-        pushgateway_url = doppler_get("PUSHGATEWAY_URL", doppler["project"], doppler["config"])
-        loki_url = doppler_get("LOKI_URL", doppler["project"], doppler["config"])
-
-    generate_makefile(config, pushgateway_url=pushgateway_url, loki_url=loki_url)
-    results = [apply_target(t, pull=args.pull, doppler=doppler, pushgateway_url=pushgateway_url, loki_url=loki_url) for t in config.get("targets", [])]
+    generate_makefile(config)
+    results = []
+    for t in config.get("targets", []):
+        hc_ping_slug = ""
+        target_doppler = t.get("doppler", {})
+        if target_doppler:
+            hc_ping_slug = doppler_get("HC_PING_SLUG", target_doppler["project"], target_doppler["config"])
+        results.append(apply_target(t, pull=args.pull, doppler=doppler, hc_ping_slug=hc_ping_slug))
     changed = any(results)
 
     if changed:
