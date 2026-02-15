@@ -1,0 +1,12 @@
+# Users file for monorepo-scheduler API (Basic Auth)
+# Copy to users.yaml and update with real credentials.
+#
+# Generate a bcrypt hash:
+#   python -c "import bcrypt; print(bcrypt.hashpw(b'your-password', bcrypt.gensalt()).decode())"
+
+users:
+  - username: admin
+    password_hash: "$2b$12$LJ3m4ys3Lg2PuxMKKIpZOOJFBGBBCnGYMhJOQYOtFMzjEr9NTn6RC"  # changeme
+    groups:
+      - admin
+  

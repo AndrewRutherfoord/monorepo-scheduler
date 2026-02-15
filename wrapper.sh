@@ -50,24 +50,3 @@ if [ -n "$HC_PING_URL" ] && [ -n "$HC_PING_KEY" ] && [ -n "$HC_PING_SLUG" ]; the
 fi
 
 rm -f "$TMPLOG"
-
-# # Discord notification on failure
-# if [ "$EXIT_CODE" -ne 0 ] && [ -n "$DISCORD_WEBHOOK_URL" ]; then
-#     WEBHOOK_URL=$DISCORD_WEBHOOK_URL
-#     if [ -n "$WEBHOOK_URL" ]; then
-#         TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-#         HOSTNAME=$(hostname)
-#         curl -sf -H "Content-Type: application/json" -d "{
-#             \"embeds\": [{
-#                 \"title\": \"Cron Job Failed\",
-#                 \"color\": 15548997,
-#                 \"fields\": [
-#                     {\"name\": \"Job\", \"value\": \"$JOB_NAME\", \"inline\": true},
-#                     {\"name\": \"Exit Code\", \"value\": \"$EXIT_CODE\", \"inline\": true},
-#                     {\"name\": \"Time\", \"value\": \"$TIMESTAMP\", \"inline\": true},
-#                     {\"name\": \"Host\", \"value\": \"$HOSTNAME\", \"inline\": true}
-#                 ]
-#             }]
-#         }" "$WEBHOOK_URL" > /dev/null 2>&1
-#     fi
-# fi
