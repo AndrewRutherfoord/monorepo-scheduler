@@ -72,7 +72,6 @@ def list_jobs(username: str = Depends(_authenticate)):
             "job_id": j["job_id"],
             "target_name": j["target_name"],
             "cron": j["cron"],
-            "command": j["command"],
         }
         for j in _job_catalog
     ]
@@ -90,10 +89,3 @@ def trigger_job(job_id: str, username: str = Depends(_authenticate)):
     subprocess.Popen(cmd, shell=True, start_new_session=True)
 
     return {"status": "triggered", "job_id": job_id, "triggered_by": username}
-
-
-@app.post("/catalog/reload")
-def reload_catalog(username: str = Depends(_authenticate)):
-    global _job_catalog, _config
-    _job_catalog, _config = load_catalog(TARGETS_FILE)
-    return {"status": "reloaded", "job_count": len(_job_catalog)}
