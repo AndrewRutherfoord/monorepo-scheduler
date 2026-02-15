@@ -12,8 +12,13 @@ targets:
     schedule_file: config/schedule.yml
     branch: main
     enabled: true
+    groups:
+      - admin
+      - devops
 
   - name: infra-tools
     repo_path: /srv/repos/infra-tools
     schedule_file: schedules.yml
     enabled: true
+    groups:
+      - admin

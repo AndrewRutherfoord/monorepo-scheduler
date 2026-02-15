@@ -46,19 +46,25 @@ def _load_users() -> list[dict]:
     return data.get("users", [])
 
 
-def _authenticate(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+def _authenticate(credentials: HTTPBasicCredentials = Depends(security)) -> dict:
     users = _load_users()
     for user in users:
         if secrets.compare_digest(credentials.username, user["username"]):
             if bcrypt.checkpw(
                 credentials.password.encode(), user["password_hash"].encode()
             ):
-                return credentials.username
+                return {"username": credentials.username, "groups": user.get("groups", [])}
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid credentials",
         headers={"WWW-Authenticate": "Basic"},
     )
+
+
+def _jobs_for_user(user_groups: list[str]) -> list[dict]:
+    """Return jobs the user has access to based on group membership."""
+    group_set = set(user_groups)
+    return [j for j in _job_catalog if group_set & set(j.get("groups", []))]
 
 @app.get("/health")
 def health():
@@ -66,20 +72,21 @@ def health():
 
 
 @app.get("/jobs")
-def list_jobs(username: str = Depends(_authenticate)):
+def list_jobs(user: dict = Depends(_authenticate)):
     return [
         {
             "job_id": j["job_id"],
             "target_name": j["target_name"],
             "cron": j["cron"],
         }
-        for j in _job_catalog
+        for j in _jobs_for_user(user["groups"])
     ]
 
 
 @app.post("/jobs/{job_id}/trigger", status_code=status.HTTP_202_ACCEPTED)
-def trigger_job(job_id: str, username: str = Depends(_authenticate)):
-    job = next((j for j in _job_catalog if j["job_id"] == job_id), None)
+def trigger_job(job_id: str, user: dict = Depends(_authenticate)):
+    accessible = _jobs_for_user(user["groups"])
+    job = next((j for j in accessible if j["job_id"] == job_id), None)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 
@@ -88,4 +95,11 @@ def trigger_job(job_id: str, username: str = Depends(_authenticate)):
 
     subprocess.Popen(cmd, shell=True, start_new_session=True)
 
-    return {"status": "triggered", "job_id": job_id, "triggered_by": username}
+    return {"status": "triggered", "job_id": job_id, "triggered_by": user["username"]}
+
+
+@app.post("/catalog/reload")
+def reload_catalog(user: dict = Depends(_authenticate)):
+    global _job_catalog, _config
+    _job_catalog, _config = load_catalog(TARGETS_FILE)
+    return {"status": "reloaded", "job_count": len(_job_catalog)}
