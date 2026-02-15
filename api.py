@@ -1,6 +1,7 @@
 """FastAPI webhook trigger service for monorepo-scheduler jobs."""
 
 from contextlib import asynccontextmanager
+import logging
 import secrets
 import subprocess
 
@@ -12,15 +13,29 @@ from pathlib import Path
 
 from catalog import build_wrapper_command, load_catalog
 
+logger = logging.getLogger(__name__)
+
 USERS_FILE = Path(__file__).resolve().parent / "users.yaml"
 TARGETS_FILE = Path(__file__).resolve().parent / "targets.yaml"
-
-app = FastAPI(title="monorepo-scheduler API")
-security = HTTPBasic()
 
 # Loaded at startup, refreshable via /catalog/reload
 _job_catalog: list[dict] = []
 _config: dict = {}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _job_catalog, _config
+    logger.info("Loading job catalog from %s", TARGETS_FILE)
+    _job_catalog, _config = load_catalog(TARGETS_FILE)
+    logger.info("Catalog loaded: %d job(s) found", len(_job_catalog))
+    for job in _job_catalog:
+        logger.info("  Job: %s (target=%s)", job["job_id"], job["target_name"])
+    yield
+
+
+app = FastAPI(title="monorepo-scheduler API", lifespan=lifespan)
+security = HTTPBasic()
 
 
 def _load_users() -> list[dict]:
@@ -44,15 +59,6 @@ def _authenticate(credentials: HTTPBasicCredentials = Depends(security)) -> str:
         detail="Invalid credentials",
         headers={"WWW-Authenticate": "Basic"},
     )
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global _job_catalog, _config
-    _job_catalog, _config = load_catalog(TARGETS_FILE)
-
-    yield
-    # Any shutdown code can go here
 
 @app.get("/health")
 def health():

@@ -1,8 +1,11 @@
 """Shared job catalog logic for monorepo-scheduler."""
 
+import logging
 import shlex
 import yaml
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 WRAPPER_PATH = Path("/usr/local/bin/monorepo-scheduler-wrapper.sh")
@@ -20,23 +23,31 @@ def shell_quote(s):
 
 def load_catalog(config_path: str | Path = "targets.yaml"):
     """Parse targets.yaml and each target's schedule.yml, returning a list of job dicts."""
+    logger.info("Loading catalog from %s", config_path)
     config = load_yaml(config_path)
     doppler = config.get("doppler", {})
+    targets = config.get("targets", [])
+    logger.info("Found %d target(s) in config", len(targets))
     jobs = []
 
-    for target in config.get("targets", []):
+    for target in targets:
+        name = target["name"]
         if not target.get("enabled", True):
+            logger.info("Target '%s' is disabled, skipping", name)
             continue
 
-        name = target["name"]
         repo_path = Path(target["repo_path"])
         schedule_path = repo_path / target["schedule_file"]
 
         if not schedule_path.exists():
+            logger.warning("Schedule file not found: %s (target '%s')", schedule_path, name)
             continue
 
+        logger.info("Loading schedule for target '%s' from %s", name, schedule_path)
         schedule_config = load_yaml(schedule_path)
         defaults = schedule_config.get("defaults", {})
+        schedules = schedule_config.get("schedules", [])
+        logger.info("Target '%s' has %d schedule(s)", name, len(schedules))
 
         for job in schedule_config.get("schedules", []):
             env_vars = defaults.get("env", {})
