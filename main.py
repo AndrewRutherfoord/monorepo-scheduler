@@ -58,7 +58,9 @@ def apply_target(target, pull=False, doppler=None):
     log_dir.mkdir(parents=True, exist_ok=True)
 
     for job in schedules:
-        cron = job["cron"]
+        cron = job.get("cron")
+        if not cron:
+            continue
         command = job["command"]
         log_file = job.get("log_file", f"{defaults.get('log_dir', 'logs')}/{job['name']}.log")
         abs_log_path = repo_path / log_file

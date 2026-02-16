@@ -65,7 +65,7 @@ def load_catalog(config_path: str | Path = "targets.yaml"):
                 "command": final_command,
                 "log_file": str(abs_log_path),
                 "hc_slug": job.get("hc_slug", ""),
-                "cron": job["cron"],
+                "cron": job.get("cron"),
                 "groups": target.get("groups", []),
             })
 
