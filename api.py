@@ -8,7 +8,7 @@ import subprocess
 import bcrypt
 import yaml
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -97,6 +97,11 @@ def ui_trigger_job(request: Request, job_id: str, user: dict = Depends(_authenti
     subprocess.Popen(cmd, shell=True, start_new_session=True)
 
     return _render_dashboard(request, user, flash={"kind": "ok", "message": f"Triggered {job_id}."})
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/ui")
 
 
 @app.get("/health")
