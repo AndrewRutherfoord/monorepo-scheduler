@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheduler</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; padding: 2rem; color: #333; }
+  h1 { margin-bottom: 1.5rem; }
+  .flash { padding: .75rem 1rem; margin-bottom: 1rem; border-radius: 6px; }
+  .flash-ok { background: #d4edda; color: #155724; }
+  .flash-err { background: #f8d7da; color: #721c24; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  th, td { text-align: left; padding: .75rem 1rem; }
+  th { background: #343a40; color: #fff; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .cron { font-family: monospace; font-size: .85rem; color: #666; }
+  button { background: #0d6efd; color: #fff; border: none; padding: .4rem .9rem; border-radius: 4px; cursor: pointer; font-size: .85rem; }
+  button:hover { background: #0b5ed7; }
+</style>
+</head>
+<body>
+<h1>Scheduler &mdash; {{ username }}</h1>
+{% if flash %}
+<div class="flash flash-{{ flash.kind }}">{{ flash.message }}</div>
+{% endif %}
+<table>
+<tr><th>Job</th><th>Target</th><th>Schedule</th><th></th></tr>
+{% for job in jobs %}
+<tr>
+  <td>{{ job.job_id }}</td>
+  <td>{{ job.target_name }}</td>
+  <td><span class="cron">{{ job.cron or "API only" }}</span></td>
+  <td>
+    <form method="post" action="/ui/trigger/{{ job.job_id }}">
+      <button type="submit">Trigger</button>
+    </form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="4">No jobs available.</td></tr>
+{% endfor %}
+</table>
+</body>
+</html>

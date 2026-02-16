@@ -7,8 +7,10 @@ import subprocess
 
 import bcrypt
 import yaml
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from catalog import build_wrapper_command, load_catalog
@@ -36,6 +38,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="monorepo-scheduler API", lifespan=lifespan)
 security = HTTPBasic()
+templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
 
 
 def _load_users() -> list[dict]:
@@ -65,6 +68,36 @@ def _jobs_for_user(user_groups: list[str]) -> list[dict]:
     """Return jobs the user has access to based on group membership."""
     group_set = set(user_groups)
     return [j for j in _job_catalog if group_set & set(j.get("groups", []))]
+
+
+def _render_dashboard(request, user, flash=None):
+    jobs = _jobs_for_user(user["groups"])
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "username": user["username"],
+        "jobs": jobs,
+        "flash": flash,
+    })
+
+
+@app.get("/ui", response_class=HTMLResponse)
+def dashboard(request: Request, user: dict = Depends(_authenticate)):
+    return _render_dashboard(request, user)
+
+
+@app.post("/ui/trigger/{job_id}", response_class=HTMLResponse)
+def ui_trigger_job(request: Request, job_id: str, user: dict = Depends(_authenticate)):
+    accessible = _jobs_for_user(user["groups"])
+    job = next((j for j in accessible if j["job_id"] == job_id), None)
+    if job is None:
+        return _render_dashboard(request, user, flash={"kind": "err", "message": "Job not found."})
+
+    doppler = _config.get("doppler", {})
+    cmd = build_wrapper_command(job, doppler)
+    subprocess.Popen(cmd, shell=True, start_new_session=True)
+
+    return _render_dashboard(request, user, flash={"kind": "ok", "message": f"Triggered {job_id}."})
+
 
 @app.get("/health")
 def health():
