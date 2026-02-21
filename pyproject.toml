@@ -8,4 +8,5 @@ dependencies = [
     "bcrypt>=5.0.0",
     "fastapi[standard]>=0.129.0",
     "pyyaml>=6.0.3",
+    "sqlmodel>=0.0.35",
 ]

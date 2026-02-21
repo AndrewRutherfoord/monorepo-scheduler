@@ -1,0 +1,22 @@
+services:
+  scheduler:
+    build: .
+    ports:
+      - "8006:8000"
+    volumes:
+      # Mount your config files
+      - ./targets.yaml:/app/targets.yaml:ro
+      - ./users.yaml:/app/users.yaml:ro
+      # Mount target repositories (adjust paths to match your targets.yaml repo_path values)
+      # - /srv/repos:/srv/repos
+      # Persistent log storage
+      - scheduler-logs:/app/logs
+      - ./api.py:/app/api.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DOPPLER_TOKEN=${DOPPLER_TOKEN:-}
+    restart: unless-stopped
+
+volumes:
+  scheduler-logs:

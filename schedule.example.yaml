@@ -1,0 +1,11 @@
+defaults:
+  log_dir: logs/
+
+schedules:
+  - name: every-10-minutes
+    cron: "*/10 * * * *"
+    command: echo "Running every 10 minutes..." 
+  - name: manual
+    command: echo "Manually run job..."
+    branch: ansible
+    hc_slug: house-of-colour-deploy

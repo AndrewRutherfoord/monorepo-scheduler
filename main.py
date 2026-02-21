@@ -134,7 +134,7 @@ def main():
     changed = any(results)
 
     if changed:
-        subprocess.run(["systemctl", "reload-or-restart", "cron"], check=False)
+        subprocess.run(["service", "cron", "reload"], check=False)
     else:
         print("⏩ No changes detected, skipping cron restart")
 

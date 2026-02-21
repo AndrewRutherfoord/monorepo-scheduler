@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+frontend/node_modules/
+.git/
+*.pyc
+run_log.csv
+Makefile
